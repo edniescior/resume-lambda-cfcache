@@ -1,0 +1,29 @@
+[flake8]
+max-line-length = 120
+
+# McCabe complexity
+max-complexity = 11
+
+# B901: return statements in generators - in Python 3 that's allowed.
+# E203:
+# E226:
+# E302:
+# E722: duplicate of B001, so can be excluded
+# S101: ignores the 'assert' in pytest files
+# S311
+# I004
+# N818
+# T002
+# T003
+
+extended-ignore=B901,E203,E226,E302,E722,S101,S311,I004,N818,T002,T003
+
+per-file-ignores =
+	tests/*.py: S101
+
+exclude = 
+	.git,                 # no need to traverse our git directory
+	__pycache__,          # no value in checking cache directories
+	.venv,                # ingore the virtual env imported packages
+	docs/source/conf.py,  # this is mostly auto-generated
+	dist                  # contains builds that we don't want to check
