@@ -1,0 +1,21 @@
+{
+    "Records": [
+        {
+            "messageId": "8911b248-1b6c-4d2e-bf73-13ab0fb7e2b9",
+            "receiptHandle": "AQEBuli4kjHZ1/88a7FFIHokWvnfL2Mj3xGar39dowjUV5mCQX7N9yqn7HP2GlTVIl0cjiMETPZCo57GwXvw26hWav48ybBxXfslnUbmmiKBdFvUt4fk4w2O+fAboYHQRwnnishihQMSze0jre0AcYxnGaxQlF+hnGnDJZ3E+peb3dxD9WixyI9JeCEPXDZ7fJJcCyEaQ/ljG9IwmcC3onUp+UxHRhnx5bmbBJjuKD5Ubc1uXzs0GodkqlJQTcsFdoen0gFh2CWngi/OarJpZ2KMvO6tFDps+KiChFwzy1r02v0skmlFsUmb0YKKvgHu2Vi7yN5uBymHz2aScRK+7iCFmyQTiz98EA6C0dLC7uAhB+5ieLM1+aMuZkvWWUWe3OBCdm5qgB2hbJklFP2EmyKHAz1ui86EhsgTuygEu2AznfA=",
+            "body": "{\"version\":\"0\",\"id\":\"c9114952-3c1e-260d-5ed9-50f745b169bb\",\"detail-type\":\"Object Created\",\"source\":\"aws.s3\",\"account\":\"12345678910\",\"time\":\"2024-01-30T14:41:17Z\",\"region\":\"us-east-1\",\"resources\":[\"arn:aws:s3:::example.com\"],\"detail\":{\"version\":\"0\",\"bucket\":{\"name\":\"example.com\"},\"object\":{\"key\":\"test01.foo2.bar.com\",\"size\":4677,\"etag\":\"772f46be1f4ae0b4daa69f5068006007\",\"version-id\":\"bZtJFz9pIioaCbBsf9wvA3q1nsimOTk1\",\"sequencer\":\"0065B90A8DD61226CE\"},\"request-id\":\"AACPK69XPKYMBRVX\",\"requester\":\"12345678910\",\"source-ip-address\":\"68.120.88.66\",\"reason\":\"PutObject\"}}",
+            "attributes": {
+                "ApproximateReceiveCount": "1",
+                "SentTimestamp": "1706625679658",
+                "SenderId": "AIDAJXNJGGKNS7OSV23OI",
+                "ApproximateFirstReceiveTimestamp": "1706625694658"
+            },
+            "messageAttributes": {},
+            "md5OfMessageAttributes": null,
+            "md5OfBody": "1a18aa8dac0dc54c68acb0c1760143dc",
+            "eventSource": "aws:sqs",
+            "eventSourceARN": "arn:aws:sqs:us-east-1:12345678910:cloudfront-cache-invalidation-queue",
+            "awsRegion": "us-east-1"
+        }
+    ]
+}

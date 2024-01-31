@@ -6,6 +6,8 @@ import moto
 import pytest
 from handler import create_paths_to_invalidate, get_ssm_parameter, lambda_handler
 
+home = "tests/unit"
+
 
 # ===============================================================
 # Fixtures
@@ -22,7 +24,6 @@ def aws_credentials():
 
 @pytest.fixture
 def cloudfront_distro():
-    home = "tests/unit"
     mock_cf_dist_file = os.path.join(home, "mock_cf_distro.json")
     with open(mock_cf_dist_file, "r") as distro_file:
         yield json.load(distro_file)
@@ -58,53 +59,42 @@ def ssm_client(aws_credentials, cloudfront_distro_id):
         yield client
 
 
+# an SQS event containing a single EventBridge event, ie one file was uploaded
 @pytest.fixture
 def eventbridge_single_file_event():
-    payload = """
-{
-    "version": "0",
-    "id": "dd5c2fbf-9555-8bf7-2795-23375f6f8bdb",
-    "detail-type": "Object Created",
-    "source": "aws.s3",
-    "account": "12345678910",
-    "time": "2024-01-26T19:46:17Z",
-    "region": "us-east-1",
-    "resources": [
-        "arn:aws:s3:::example.com"
-    ],
-    "detail": {
-        "version": "0",
-        "bucket": {
-            "name": "example.com"
-        },
-        "object": {
-            "key": "test01.foo2.bar.com",
-            "size": 10,
-            "etag": "b05403212c66bdc8ccc597fedf6cd5fe",
-            "version-id": "8TtpHeSRQMOysErMFgieNVxkrgUED_IB",
-            "sequencer": "0065B40C0915C35463"
-        },
-        "request-id": "JH7SKTGA43YMMQ99",
-        "requester": "838979457348",
-        "source-ip-address": "68.80.121.21",
-        "reason": "PutObject"
-    }
-}
-"""
-    return json.loads(payload)
+    mock_event_file = os.path.join(home, "mock_event_single_file.json")
+    with open(mock_event_file, "r") as event_file:
+        yield json.load(event_file)
+
+
+# an SQS event containing multiple EventBridge events, ie several files were uploaded
+@pytest.fixture
+def eventbridge_multi_file_event():
+    mock_event_file = os.path.join(home, "mock_event_multi_file.json")
+    with open(mock_event_file, "r") as event_file:
+        yield json.load(event_file)
 
 
 # ===============================================================
 # Tests
 # ===============================================================
 # write a test using the fixture eventbridge_single_file_event to test the function create_paths_to_invalidate
-def test_create_paths_to_invalidate(
+def test_create_paths_to_invalidate_single_event(
     eventbridge_single_file_event, ssm_client, cloudfront_client
 ):
     # create a list of paths to invalidate
     paths_to_invalidate = create_paths_to_invalidate(eventbridge_single_file_event)
     # assert that the list contains the expected paths
     assert paths_to_invalidate == ["/test01.foo2.bar.com"]
+
+
+def test_create_paths_to_invalidate_multi_event(
+    eventbridge_multi_file_event, ssm_client, cloudfront_client
+):
+    # create a list of paths to invalidate
+    paths_to_invalidate = create_paths_to_invalidate(eventbridge_multi_file_event)
+    # assert that the list contains the expected paths
+    assert paths_to_invalidate == ["/test01.foo2.bar.com", "/tags/test02.foo2.bar.com"]
 
 
 # write a test to test get ssm parameter function
@@ -114,7 +104,7 @@ def test_get_ssm_parameter(ssm_client, cloudfront_distro_id):
 
 
 # write a test for the lambda handler function
-def test_lambda_handler(
+def test_lambda_handler_single(
     ssm_client, cloudfront_client, cloudfront_distro_id, eventbridge_single_file_event
 ):
     # call the lambda handler function
@@ -125,6 +115,26 @@ def test_lambda_handler(
     assert (
         response["body"]
         == "Cache invalidation triggered for uploaded files: ['/test01.foo2.bar.com']"
+    )
+
+    # assert that the paths were invalidated successfully
+    cf_invalidation = cloudfront_client.list_invalidations(
+        DistributionId=cloudfront_distro_id
+    )["InvalidationList"]["Items"][0]
+    assert cf_invalidation["Status"] == "COMPLETED"
+
+
+def test_lambda_handler_multi(
+    ssm_client, cloudfront_client, cloudfront_distro_id, eventbridge_multi_file_event
+):
+    # call the lambda handler function
+    response = lambda_handler(eventbridge_multi_file_event, {})
+    # assert that the response is a success
+    assert response["statusCode"] == 200
+    # assert that the response contains the expected message
+    assert (
+        response["body"]
+        == "Cache invalidation triggered for uploaded files: ['/test01.foo2.bar.com', '/tags/test02.foo2.bar.com']"
     )
 
     # assert that the paths were invalidated successfully

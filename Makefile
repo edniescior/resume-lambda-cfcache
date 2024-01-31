@@ -44,5 +44,4 @@ build: ## Package up the artifact
 	@echo '*** build complete ***'
 
 deploy: ## Deploy to AWS
-	@echo '*** running deployment ***'
-	@echo '*** deployment complete ***'
+	@echo 'Not here: Managed by Terraform'

@@ -18,9 +18,11 @@ def get_ssm_parameter(parameter_name):
     return response["Parameter"]["Value"]
 
 
-# write a Function to create a list of paths to invalidate given an event bridge event
+# write a Function to create a list of paths to invalidate given an SQS message
+# containing 1 to many event bridge events.
 def create_paths_to_invalidate(event):
-    files_uploaded = [event["detail"]["object"]["key"]]
+    events = [json.loads(message["body"]) for message in event["Records"]]
+    files_uploaded = [event["detail"]["object"]["key"] for event in events]
     paths_to_invalidate = ["/{}".format(file) for file in files_uploaded]
     return paths_to_invalidate
 
