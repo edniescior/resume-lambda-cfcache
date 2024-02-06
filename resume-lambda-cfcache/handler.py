@@ -10,10 +10,27 @@ log_level = os.getenv("LOG_LEVEL", "INFO")
 logger = logging.getLogger()
 logger.setLevel(log_level)
 
+_ssm_client = None
+_cf_client = None
+
+
+def get_ssm_client():
+    global _ssm_client
+    if _ssm_client is None:
+        _ssm_client = boto3.client("ssm")
+    return _ssm_client
+
+
+def get_cf_client():
+    global _cf_client
+    if _cf_client is None:
+        _cf_client = boto3.client("cloudfront")
+    return _cf_client
+
 
 # Get the distribution ID from SSM Parameter Store
 def get_ssm_parameter(parameter_name):
-    ssm_client = boto3.client("ssm")
+    ssm_client = get_ssm_client()
     response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
     return response["Parameter"]["Value"]
 
@@ -39,7 +56,7 @@ def lambda_handler(event, context):
     distribution_id = get_ssm_parameter(distribution_id_parameter_name)
     logger.debug(f"Distribution ID: {distribution_id}")
 
-    cloudfront_client = boto3.client("cloudfront")
+    cloudfront_client = get_cf_client()
     # Create CloudFront invalidation request
     dt_now = datetime.now(tz=timezone.utc)
     response = cloudfront_client.create_invalidation(
