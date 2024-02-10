@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from json import JSONDecodeError
 
 import boto3
 
@@ -31,17 +32,33 @@ def get_cf_client():
 # Get the distribution ID from SSM Parameter Store
 def get_ssm_parameter(parameter_name):
     ssm_client = get_ssm_client()
-    response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
-    return response["Parameter"]["Value"]
+    try:
+        response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
+        return response["Parameter"]["Value"]
+    except ssm_client.exceptions.ParameterNotFound:
+        logger.error(f"SSM Parameter {parameter_name} not found")
+        raise
+    except Exception as e:
+        logger.error(f"Error getting SSM Parameter {parameter_name}: {e}")
+        raise
 
 
 # write a Function to create a list of paths to invalidate given an SQS message
 # containing 1 to many event bridge events.
 def create_paths_to_invalidate(event):
-    events = [json.loads(message["body"]) for message in event["Records"]]
-    files_uploaded = [event["detail"]["object"]["key"] for event in events]
-    paths_to_invalidate = ["/{}".format(file) for file in files_uploaded]
-    return paths_to_invalidate
+    try:
+        events = [json.loads(message["body"]) for message in event["Records"]]
+        files_uploaded = [f["detail"]["object"]["key"] for f in events]
+        return ["/{}".format(file) for file in files_uploaded]
+    except JSONDecodeError as j:
+        logger.error(f"JSONDecodeError: {str(j)}")
+        raise
+    except KeyError as k:
+        logger.error(f"KeyError: {str(k)}")
+        raise
+    except Exception as e:
+        logger.error(f"Error getting paths to invalidate: {e}")
+        raise
 
 
 def lambda_handler(event, context):

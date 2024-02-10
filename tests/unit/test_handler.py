@@ -97,10 +97,25 @@ def test_create_paths_to_invalidate_multi_event(
     assert paths_to_invalidate == ["/test01.foo2.bar.com", "/tags/test02.foo2.bar.com"]
 
 
+def test_create_paths_to_invalidate_no_event(ssm_client, cloudfront_client):
+    # assert that the exception is raised with the expected message
+    with pytest.raises(KeyError) as excinfo:
+        create_paths_to_invalidate({})
+    assert "Records" in str(excinfo.value)
+
+
 # write a test to test get ssm parameter function
 def test_get_ssm_parameter(ssm_client, cloudfront_distro_id):
     ssm_param = get_ssm_parameter("/foo/bar")
     assert ssm_param == cloudfront_distro_id
+
+
+# write a test to raise an error if the ssm parameter is not found
+def test_get_ssm_parameter_not_found(ssm_client):
+    # assert that the exception is raised with the expected message
+    with pytest.raises(Exception) as excinfo:
+        get_ssm_parameter("/foo/bar2")
+    assert "Parameter /foo/bar2 not found." in str(excinfo.value)
 
 
 # write a test for the lambda handler function
