@@ -139,10 +139,6 @@ def test_lambda_handler_multi(
 
 def test_lambda_handler_no_event(ssm_client, cloudfront_client):
     # test that the lambda handler returns a failure response when an invalid event is provided
-
-    # call the lambda handler function
-    response = lambda_handler("fibble", {})
-    # assert that the response is a success
-    assert response["statusCode"] == 400
-    # assert that the response contains the expected message
-    assert "Unable to process request" in response["body"]
+    with pytest.raises(ValueError) as excinfo:
+        lambda_handler("fibble", {})
+    assert "No records found in event" in str(excinfo.value)

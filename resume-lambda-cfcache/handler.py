@@ -53,6 +53,8 @@ def get_path_to_invalidate(message):
 def lambda_handler(event, context):
 
     # Create a list of file paths to invalidate from the batch of events
+    if "Records" not in event:
+        raise ValueError("No records found in event")
     paths_to_invalidate = [
         get_path_to_invalidate(message) for message in event["Records"]
     ]
