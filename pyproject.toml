@@ -24,6 +24,7 @@ flake8-print = "^5.0.0"
 pep8-naming = "^0.13.3"
 isort = "^5.13"
 pytest = "^7.4"
+pytest-env = "^1.1"
 moto = "^4.2"
 
 [build-system]

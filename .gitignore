@@ -43,4 +43,5 @@ poetry/core/*
 # build artifacts
 /package
 /dist
+/layers
 artifact.zip

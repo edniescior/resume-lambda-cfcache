@@ -4,7 +4,7 @@ import os
 import boto3
 import moto
 import pytest
-from handler import create_paths_to_invalidate, get_ssm_parameter, lambda_handler
+from handler import get_path_to_invalidate, lambda_handler
 
 home = "tests/unit"
 
@@ -47,7 +47,6 @@ def cloudfront_distro_id(cloudfront_client):
 
 @pytest.fixture(scope="function")
 def ssm_client(aws_credentials, cloudfront_distro_id):
-    os.environ["CF_DIST_ID_LABEL"] = "/foo/bar"  # noqa
     with moto.mock_ssm():
         client = boto3.client("ssm", region_name="us-east-1")
         client.put_parameter(
@@ -79,43 +78,22 @@ def eventbridge_multi_file_event():
 # Tests
 # ===============================================================
 # write a test using the fixture eventbridge_single_file_event to test the function create_paths_to_invalidate
-def test_create_paths_to_invalidate_single_event(
+def test_get_path_to_invalidate(
     eventbridge_single_file_event, ssm_client, cloudfront_client
 ):
+    message = eventbridge_single_file_event["Records"][0]
+
     # create a list of paths to invalidate
-    paths_to_invalidate = create_paths_to_invalidate(eventbridge_single_file_event)
+    paths_to_invalidate = get_path_to_invalidate(message)
     # assert that the list contains the expected paths
-    assert paths_to_invalidate == ["/test01.foo2.bar.com"]
+    assert paths_to_invalidate == "/test01.foo2.bar.com"
 
 
-def test_create_paths_to_invalidate_multi_event(
-    eventbridge_multi_file_event, ssm_client, cloudfront_client
-):
-    # create a list of paths to invalidate
-    paths_to_invalidate = create_paths_to_invalidate(eventbridge_multi_file_event)
-    # assert that the list contains the expected paths
-    assert paths_to_invalidate == ["/test01.foo2.bar.com", "/tags/test02.foo2.bar.com"]
-
-
-def test_create_paths_to_invalidate_no_event(ssm_client, cloudfront_client):
+def test_get_path_to_invalidate_no_event(ssm_client, cloudfront_client):
     # assert that the exception is raised with the expected message
     with pytest.raises(KeyError) as excinfo:
-        create_paths_to_invalidate({})
-    assert "Records" in str(excinfo.value)
-
-
-# write a test to test get ssm parameter function
-def test_get_ssm_parameter(ssm_client, cloudfront_distro_id):
-    ssm_param = get_ssm_parameter("/foo/bar")
-    assert ssm_param == cloudfront_distro_id
-
-
-# write a test to raise an error if the ssm parameter is not found
-def test_get_ssm_parameter_not_found(ssm_client):
-    # assert that the exception is raised with the expected message
-    with pytest.raises(Exception) as excinfo:
-        get_ssm_parameter("/foo/bar2")
-    assert "Parameter /foo/bar2 not found." in str(excinfo.value)
+        get_path_to_invalidate({})
+    assert "body" in str(excinfo.value)
 
 
 # write a test for the lambda handler function
@@ -157,3 +135,14 @@ def test_lambda_handler_multi(
         DistributionId=cloudfront_distro_id
     )["InvalidationList"]["Items"][0]
     assert cf_invalidation["Status"] == "COMPLETED"
+
+
+def test_lambda_handler_no_event(ssm_client, cloudfront_client):
+    # test that the lambda handler returns a failure response when an invalid event is provided
+
+    # call the lambda handler function
+    response = lambda_handler("fibble", {})
+    # assert that the response is a success
+    assert response["statusCode"] == 400
+    # assert that the response contains the expected message
+    assert "Unable to process request" in response["body"]

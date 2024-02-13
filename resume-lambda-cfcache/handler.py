@@ -1,25 +1,28 @@
-import json
 import logging
 import os
 from datetime import datetime, timezone
-from json import JSONDecodeError
 
 import boto3
+from lambda_decorators import (
+    catch_errors,
+    load_json_body,
+    with_logging,
+    with_ssm_parameters,
+)
 
 log_level = os.getenv("LOG_LEVEL", "INFO")
 
 logger = logging.getLogger()
 logger.setLevel(log_level)
 
-_ssm_client = None
+# The secret to get from SSM Parameter Store - the CloudFront distribution id.
+# The secret is managed by Terraform. The same TF module sets the parameter as an
+# environment variable when deploying this Lambda function. The with_ssm_parameters
+# decorator takes this value as a parameter to get the distribution ID from
+# SSM Parameter Store at runtime.
+cf_dist_id_label = os.getenv("CF_DIST_ID_LABEL")
+
 _cf_client = None
-
-
-def get_ssm_client():
-    global _ssm_client
-    if _ssm_client is None:
-        _ssm_client = boto3.client("ssm")
-    return _ssm_client
 
 
 def get_cf_client():
@@ -29,30 +32,13 @@ def get_cf_client():
     return _cf_client
 
 
-# Get the distribution ID from SSM Parameter Store
-def get_ssm_parameter(parameter_name):
-    ssm_client = get_ssm_client()
+@load_json_body
+def get_path_to_invalidate(message):
+    """Extract the file path of the triggering file from the event body."""
+    logger.debug(f"Message: {message}")
     try:
-        response = ssm_client.get_parameter(Name=parameter_name, WithDecryption=True)
-        return response["Parameter"]["Value"]
-    except ssm_client.exceptions.ParameterNotFound:
-        logger.error(f"SSM Parameter {parameter_name} not found")
-        raise
-    except Exception as e:
-        logger.error(f"Error getting SSM Parameter {parameter_name}: {e}")
-        raise
-
-
-# write a Function to create a list of paths to invalidate given an SQS message
-# containing 1 to many event bridge events.
-def create_paths_to_invalidate(event):
-    try:
-        events = [json.loads(message["body"]) for message in event["Records"]]
-        files_uploaded = [f["detail"]["object"]["key"] for f in events]
-        return ["/{}".format(file) for file in files_uploaded]
-    except JSONDecodeError as j:
-        logger.error(f"JSONDecodeError: {str(j)}")
-        raise
+        path = message["body"]["detail"]["object"]["key"]
+        return f"/{path}"
     except KeyError as k:
         logger.error(f"KeyError: {str(k)}")
         raise
@@ -61,16 +47,24 @@ def create_paths_to_invalidate(event):
         raise
 
 
+@with_logging
+@catch_errors
+@with_ssm_parameters(cf_dist_id_label)
 def lambda_handler(event, context):
-    logger.info(f"Event: {json.dumps(event, indent=2)}")
 
-    # Create a list of file paths to invalidate
-    paths_to_invalidate = create_paths_to_invalidate(event)
+    # Create a list of file paths to invalidate from the batch of events
+    paths_to_invalidate = [
+        get_path_to_invalidate(message) for message in event["Records"]
+    ]
     logger.info(f"Paths to invalidate: {paths_to_invalidate}")
 
     # Get distribution ID for your CloudFront distribution from SSM Parameter Store
-    distribution_id_parameter_name = os.getenv("CF_DIST_ID_LABEL", "NoParameterSet")
-    distribution_id = get_ssm_parameter(distribution_id_parameter_name)
+    distribution_id = cf_dist_id_label and os.getenv(cf_dist_id_label)
+    if not distribution_id:
+        logger.error(
+            f"Distribution ID not found in SSM Parameter Store for label {cf_dist_id_label}"
+        )
+        raise ValueError("Distribution ID not found in SSM Parameter Store")
     logger.debug(f"Distribution ID: {distribution_id}")
 
     cloudfront_client = get_cf_client()
